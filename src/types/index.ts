@@ -27,23 +27,26 @@ export interface RouteDetails {
   steps: string[];
 }
 
+// Union type for all possible data structures returned by the agent
 export type AgentResponseData =
-  | { type: "location"; data: LocationDetails }
-  | { type: "route"; data: RouteDetails }
-  | { type: "text"; data: { text: string } };
+  | LocationDetails
+  | RouteDetails
+  | { type: "error"; message: string } // Example of another possible response type
+  | any; // Fallback for any other unexpected response structure
 
-export interface AgentResponsePayload {
-  messages: Message[];
-  tool_calls?: any[]; // Placeholder for potential tool calls
-  error?: string;
+// Interface for an assistant message that might include tool calls
+export interface AssistantMessage extends Message {
+  role: "assistant";
+  content: string;
+  tool_calls?: ToolCall[];
 }
 
-export interface ChatMessage extends Message {
+// Interface for a tool call
+export interface ToolCall {
   id: string;
-  timestamp: Date;
-}
-
-export interface AgentRequest {
-  query: string;
-  history: ChatMessage[];
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
 }
