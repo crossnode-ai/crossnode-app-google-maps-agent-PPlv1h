@@ -1,82 +1,67 @@
-typescript
 import { Session } from "next-auth";
 import { getSession } from "next-auth/react";
+import { AgentResponse, Message, ToolCall, LocationDetails, RouteDetails } from "@/types"; // Import AgentResponse and Message from types
 
 const AGENT_ID = "f03bd0e5-582e-4306-a254-9f9d9a6f9ce1";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-interface AgentResponse<T> {
-  data: T;
-}
+// Removed local interface definitions as they are now imported from @/types
+// interface AgentResponse<T> {
+//   data: T;
+// }
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+// interface Message {
+//   role: "user" | "assistant";
+//   content: string;
+// }
 
-interface ToolCall {
-  id: string;
-  type: string;
-  function: {
-    name: string;
-    arguments: string;
-  };
-}
+// interface ToolCall {
+//   id: string;
+//   type: string;
+//   function: {
+//     name: string;
+//     arguments: string;
+//   };
+// }
 
-interface AssistantMessage extends Message {
-  role: "assistant";
-  content: string | null;
-  tool_calls?: ToolCall[];
-}
+// interface AssistantMessage extends Message {
+//   role: "assistant";
+//   content: string;
+//   tool_calls?: ToolCall[];
+// }
 
-interface UserMessage extends Message {
-  role: "user";
-  content: string;
-}
-
-export type ChatMessage = UserMessage | AssistantMessage;
-
-export async function sendMessageToAgent(
-  messages: ChatMessage[],
-  session: Session | null
-): Promise<AssistantMessage> {
-  if (!API_URL) {
-    throw new Error("NEXT_PUBLIC_API_URL is not defined.");
+export async function fetchAgentResponse(
+  agentId: string,
+  query: string,
+  apiUrl: string = API_URL as string // Provide a default or ensure API_URL is always defined
+): Promise<AgentResponse<LocationDetails | RouteDetails | any>> {
+  if (!apiUrl) {
+    throw new Error("API_URL is not defined. Please set NEXT_PUBLIC_API_URL environment variable.");
   }
 
-  const token = session?.user?.access_token;
+  // const session = await getSession(); // getSession is imported but not used
+  // const token = session?.accessToken;
 
-  try {
-    const response = await fetch(`${API_URL}/agents/${AGENT_ID}/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ messages }),
-    });
+  const response = await fetch(`${apiUrl}/agents/${agentId}/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      // Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      messages: [
+        { role: "user", content: query } as Message,
+      ],
+      // stream: false, // Assuming non-streaming for simplicity
+    }),
+  });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        `API Error: ${response.status} - ${errorData.message || response.statusText}`
-      );
-    }
-
-    const data: AgentResponse<AssistantMessage> = await response.json();
-    return data.data;
-  } catch (error) {
-    console.error("Error sending message to agent:", error);
-    throw error;
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error("API Error Response:", errorData);
+    throw new Error(`API request failed with status ${response.status}: ${errorData.message || response.statusText}`);
   }
-}
 
-export async function getSessionAndSendMessage(
-  messages: ChatMessage[]
-): Promise<AssistantMessage> {
-  const session = await getSession();
-  if (!session) {
-    throw new Error("User not authenticated.");
-  }
-  return sendMessageToAgent(messages, session);
+  const data: AgentResponse<LocationDetails | RouteDetails | any> = await response.json();
+  return data;
 }
